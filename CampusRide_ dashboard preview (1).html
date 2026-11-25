@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CampusRide: dashboard preview</title>
+<style>
+:root{--bg:#eef2f5;--panel:#fff;--ink:#14213d;--mute:#5b6b80;--line:#d5dde5;--sel:#e8f1f8;--accent:#0f7f70;--pink:#b02a6c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1722;--panel:#18222f;--ink:#e8eef5;--mute:#9aabbd;--line:#2a3747;--sel:#223044;--accent:#38c3ae;--pink:#ef7db5}}
+:root[data-theme="dark"]{--bg:#0f1722;--panel:#18222f;--ink:#e8eef5;--mute:#9aabbd;--line:#2a3747;--sel:#223044;--accent:#38c3ae;--pink:#ef7db5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.page{max-width:860px;margin:0 auto;padding:16px 18px 40px}
+h1{margin:0;font-size:1.5rem;letter-spacing:-.02em}
+.sub{color:var(--mute);font-size:.9rem;margin:4px 0 14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+label{font-weight:600}
+select{font:inherit;color:var(--ink);background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;min-width:260px;max-width:100%}
+button{font:inherit;color:var(--ink);background:none;border:1.5px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer}
+button[aria-pressed=true]{border-color:var(--ink);background:var(--sel);font-weight:600}
+button:focus-visible,select:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+h2{font-size:1.05rem;margin:0 0 8px}
+h3{font-size:.95rem;margin:14px 0 6px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.fact{background:var(--sel);border-radius:10px;padding:10px}
+.fact small{display:block;color:var(--mute);font-size:.8rem}
+.fact b{font-size:1rem}
+.live{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.eta{font-size:1.7rem;font-weight:800;color:var(--accent)}
+.bar{height:10px;background:var(--sel);border-radius:6px;margin:12px 0 4px;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:6px;transition:width .9s linear}
+.bar b{position:absolute;top:-4px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--pink);border:3px solid var(--panel);transition:left .9s linear}
+.bar-l{display:flex;justify-content:space-between;color:var(--mute);font-size:.8rem}
+ol{list-style:none;margin:10px 0 0;padding:0 0 0 14px;border-left:3px solid var(--line)}
+li{display:flex;gap:12px;padding:5px 0 5px 10px;position:relative}
+li::before{content:"";position:absolute;left:-19px;top:12px;width:11px;height:11px;border-radius:50%;background:var(--panel);border:2.5px solid var(--mute)}
+li.done{color:var(--mute)}
+li.done::before{background:var(--mute)}
+li.next::before{border-color:var(--pink);background:var(--pink)}
+li.mine{font-weight:700}
+li.mine span::after{content:" (your stop)";color:var(--accent);font-weight:600}
+li.next span::before{content:"Next: ";color:var(--pink);font-weight:600}
+time{min-width:48px;font-variant-numeric:tabular-nums;color:var(--mute)}
+.note{color:var(--mute);font-size:.85rem}
+.code{display:inline-block;background:var(--sel);border-radius:8px;padding:2px 8px;font-weight:700;letter-spacing:.1em}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>CampusRide</h1>
+  <p class="sub">Dashboard preview with simulated live buses. Pick any demo account to see what that person sees.</p>
+  <div class="row"><label for="who">View as</label><select id="who"></select></div>
+  <div class="row" role="group" aria-label="Direction">
+    <button data-dir="morning" aria-pressed="true">To college</button>
+    <button data-dir="evening" aria-pressed="false">Back home</button>
+  </div>
+  <div id="app"></div>
+  <p class="note">Bus movement here is simulated and loops every minute or so. In the real project the position comes from the driver’s phone GPS. Times and stops are planned samples.</p>
+</div>
+<script>
+const ROUTES={
+ A:{name:"Beach to Pallavaram (Local Line Route)",dep:{morning:"06:30",evening:"16:30"},total:70,stops:[["Chennai Beach",0],["Chennai Fort",5],["Chennai Park",9],["Chennai Egmore",15],["Chetpet",21],["Nungambakkam",25],["Kodambakkam",30],["Mambalam",34],["Saidapet",39],["Guindy",44],["St. Thomas Mount",49],["Pazhavanthangal",52],["Meenambakkam",56],["Trisulam",60],["Pallavaram",66],["College Campus, Pallavaram",70]]},
+ B:{name:"Tambaram to Pallavaram",dep:{morning:"07:30",evening:"16:30"},total:24,stops:[["Tambaram",0],["Tambaram Sanatorium",6],["Chromepet",12],["Pallavaram",20],["College Campus, Pallavaram",24]]}
+};
+const KIDS={arun:{n:"Arun (student)",r:"A",s:"Guindy",code:"123456"},priya:{n:"Priya (student)",r:"B",s:"Chromepet",code:"654321"},karthik:{n:"Karthik (student)",r:"A",s:"Meenambakkam",code:"111111"},divya:{n:"Divya (student)",r:"A",s:"Chetpet",code:"222222"},rahul:{n:"Rahul (student)",r:"B",s:"Tambaram",code:"333333"}};
+const PEOPLE=[
+ ["Students",[["arun","Arun",["arun"],"student"],["priya","Priya",["priya"],"student"],["karthik","Karthik",["karthik"],"student"],["divya","Divya",["divya"],"student"],["rahul","Rahul",["rahul"],"student"]]],
+ ["Teachers",[["lakshmi","Mrs. Lakshmi",[{n:"Mrs. Lakshmi (teacher)",r:"A",s:"Saidapet"}],"teacher"],["venkatesh","Mr. Venkatesh",[{n:"Mr. Venkatesh (teacher)",r:"A",s:"Kodambakkam"}],"teacher"],["fathima","Ms. Fathima",[{n:"Ms. Fathima (teacher)",r:"B",s:"Tambaram Sanatorium"}],"teacher"],["rajan","Dr. Rajan",[{n:"Dr. Rajan (teacher)",r:"A",s:"Chennai Park"}],"teacher"]]],
+ ["Parents",[["parent","Arun’s parent",["arun"],"parent"],["ramesh","Ramesh (Karthik’s father)",["karthik"],"parent"],["meena","Meena (Karthik’s mother)",["karthik"],"parent"],["suresh","Suresh (Divya’s father)",["divya"],"parent"],["kavitha","Kavitha (mother of Priya and Rahul)",["priya","rahul"],"parent"],["anitha","Anitha (Priya’s mother)",["priya"],"parent"]]]
+];
+const T={A:0,B:0};let dir="morning",who="arun";
+const $=s=>document.querySelector(s);
+const hm=(b,m)=>{const[h,i]=b.split(":").map(Number),x=h*60+i+m;return String(Math.floor(x/60)%24).padStart(2,"0")+":"+String(x%60).padStart(2,"0")};
+const dur=m=>m>=60?Math.floor(m/60)+" h "+m%60+" min":m+" min";
+const stops=r=>{const R=ROUTES[r];return dir==="morning"?R.stops.map(s=>({n:s[0],o:s[1]})):R.stops.slice().reverse().map(s=>({n:s[0],o:R.total-s[1]}))};
+const person=()=>{for(const g of PEOPLE)for(const p of g[1])if(p[0]===who)return p};
+
+function trips(){return person()[2].map(k=>typeof k==="string"?KIDS[k]:k)}
+function build(){
+  const p=person();let html="";
+  if(p[3]==="student")html+=`<div class="card">Family code: <span class="code">${KIDS[p[0]].code}</span><div class="note">Share this with your parent along with your email so they can follow your bus.</div></div>`;
+  trips().forEach((t,i)=>{
+    const R=ROUTES[t.r],S=stops(t.r),mine=S.find(s=>s.n===t.s),dep=R.dep[dir];
+    html+=`<section class="card" data-i="${i}"><h2>${t.n}: ${R.name}</h2>
+    <div class="facts">
+     <div class="fact"><small>Starts at</small><b>${S[0].n}</b></div>
+     <div class="fact"><small>Departs</small><b>${dep}</b></div>
+     <div class="fact"><small>Ends at</small><b>${S[S.length-1].n}</b></div>
+     <div class="fact"><small>Arrives</small><b>${hm(dep,R.total)}</b></div>
+     <div class="fact"><small>Total journey</small><b>${dur(R.total)}</b></div>
+     <div class="fact"><small>Stops</small><b>${S.length}</b></div>
+     <div class="fact"><small>${dir==="morning"?"Pickup at":"Drop at"} ${t.s}</small><b>${hm(dep,mine.o)}</b></div>
+     ${dir==="morning"?`<div class="fact"><small>Pickup to college</small><b>${dur(R.total-mine.o)}</b></div>`:""}
+    </div>
+    <h3>Live bus</h3>
+    <div class="live"><div><div class="where"></div><div class="note clock"></div></div><div class="eta"></div></div>
+    <div class="bar" aria-hidden="true"><i></i><b></b></div>
+    <div class="bar-l"><span>${S[0].n}</span><span>${S[S.length-1].n}</span></div>
+    <h3>Stops and planned times</h3>
+    <ol>${S.map(s=>`<li class="${s.n===t.s?"mine":""}"><time>${hm(dep,s.o)}</time><span>${s.n}</span></li>`).join("")}</ol></section>`;
+  });
+  $("#app").innerHTML=html;tick();
+}
+function tick(){
+  trips().forEach((t,i)=>{
+    const card=document.querySelector(`.card[data-i="${i}"]`);if(!card)return;
+    const R=ROUTES[t.r],S=stops(t.r),mine=S.find(s=>s.n===t.s),Tm=Math.min(T[t.r],R.total);
+    let nx=S.findIndex(s=>s.o>Tm);if(nx<0)nx=S.length-1;
+    card.querySelectorAll("li").forEach((li,j)=>{li.classList.toggle("done",S[j].o<=Tm);li.classList.toggle("next",j===nx&&S[j].o>Tm)});
+    const prev=S[Math.max(0,nx-1)];
+    card.querySelector(".where").innerHTML=Tm>=R.total?"<b>Bus has reached "+S[S.length-1].n+"</b>":Tm===0?"<b>At "+S[0].n+"</b>":"<b>Between "+prev.n+" and "+S[nx].n+"</b>";
+    card.querySelector(".clock").textContent="Bus time "+hm(R.dep[dir],Math.floor(Tm))+" (planned "+hm(R.dep[dir],mine.o)+" at "+t.s+")";
+    const left=Math.ceil(mine.o-Tm);
+    card.querySelector(".eta").textContent=left>0?left+" min to "+t.s:"Passed "+t.s;
+    const pct=Tm/R.total*100;card.querySelector(".bar i").style.width=pct+"%";card.querySelector(".bar b").style.left=pct+"%";
+  });
+}
+$("#who").innerHTML=PEOPLE.map(g=>`<optgroup label="${g[0]}">${g[1].map(p=>`<option value="${p[0]}">${p[1]}</option>`).join("")}</optgroup>`).join("");
+$("#who").onchange=e=>{who=e.target.value;build()};
+document.querySelectorAll("[data-dir]").forEach(b=>b.onclick=()=>{dir=b.dataset.dir;T.A=0;T.B=0;document.querySelectorAll("[data-dir]").forEach(x=>x.setAttribute("aria-pressed",x===b));build()});
+build();
+setInterval(()=>{for(const k in T){T[k]+=1;if(T[k]>ROUTES[k].total+5)T[k]=0}tick()},900);
+</script>
+</body>
+</html>
